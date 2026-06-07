@@ -811,14 +811,87 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Preset tags selection
+                    // Smart Operator Carrier selection
+                    val selectedOpId by viewModel.selectedOperatorId.collectAsState()
+                    val smartTlsCheck by viewModel.smartTlsCheck.collectAsState()
+                    val multiPortScan by viewModel.multiPortScan.collectAsState()
+
                     Text(
-                        text = "بازه های انتخابی برای اسکن:",
+                        text = "دستیار پایش هوشمند با توجه به اپراتور سیم‌کارت شما:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = CyberPrimary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
+
+                    // Smooth operators cards row
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        viewModel.operatorPresets.forEach { op ->
+                            val isSelected = (selectedOpId == op.id)
+                            Card(
+                                onClick = { viewModel.selectOperator(op.id) },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) CyberPrimary.copy(alpha = 0.12f) else CyberBgDeep
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) CyberPrimary else CyberBorder
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSelected) CyberPrimary else Color.Transparent)
+                                            .border(1.dp, if (isSelected) CyberPrimary else CyberMuted, CircleShape)
+                                    )
+
+                                    Column(
+                                        horizontalAlignment = Alignment.End,
+                                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp)
+                                    ) {
+                                        Text(
+                                            text = op.name,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) CyberPrimary else Color.White
+                                        )
+                                        Text(
+                                            text = op.description,
+                                            fontSize = 9.sp,
+                                            color = CyberMuted,
+                                            textAlign = TextAlign.Right
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Preset tags selection
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "بازه های انتخابی برای اسکن:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyberPrimary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
 
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -1008,6 +1081,94 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
                                     )
                                     Text(
                                         text = "تست دسترسی به سرورهای Akamai با تکنیک SNI",
+                                        fontSize = 9.sp,
+                                        color = CyberMuted
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Smart TLS Check (SSL / Gateway Probe) Toggle
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (smartTlsCheck) CyberPrimary.copy(alpha = 0.08f) else Color.Transparent)
+                                    .clickable { viewModel.setSmartTlsCheck(!smartTlsCheck) }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp, 24.dp)
+                                        .clip(CircleShape)
+                                        .background(if (smartTlsCheck) CyberPrimary else CyberBorder)
+                                        .padding(4.dp),
+                                    contentAlignment = if (smartTlsCheck) Alignment.CenterEnd else Alignment.CenterStart
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                    )
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "بررسی هوشمند کلودفلر (SSL TLS Probe)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "تست کامل هندشیک رمزگذاری شده با هدف تضمین کارکرد بی نقص",
+                                        fontSize = 9.sp,
+                                        color = CyberMuted
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Smart Multi-Port Verification Toggle
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (multiPortScan) CyberPrimary.copy(alpha = 0.08f) else Color.Transparent)
+                                    .clickable { viewModel.setMultiPortScan(!multiPortScan) }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp, 24.dp)
+                                        .clip(CircleShape)
+                                        .background(if (multiPortScan) CyberPrimary else CyberBorder)
+                                        .padding(4.dp),
+                                    contentAlignment = if (multiPortScan) Alignment.CenterEnd else Alignment.CenterStart
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White)
+                                    )
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        text = "پایش و اسکن چند پورت همزمان (Multi-Port)",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "بررسی همزمان پورت‌های طلایی (8443، 2053 و غیره) برای کشف بهترین پورت",
                                         fontSize = 9.sp,
                                         color = CyberMuted
                                     )
@@ -1653,8 +1814,60 @@ fun GeneratorTabScreen(viewModel: ScannerViewModel) {
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 6.dp)
                     )
+
+                    // Template quick insertion buttons
+                    Text(
+                        text = "بارگذاری هوشمند الگوهای خام:",
+                        fontSize = 10.sp,
+                        color = CyberPrimary,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.setConverterOriginalConfig("vless://8ebfca0a-df62-4822-a982-fec86144bb28@sub.mydomain.com:443?type=ws&security=tls&path=%2F#VLESS-Websocket-TLS")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberBgDeep, contentColor = Color.White),
+                            border = BorderStroke(1.dp, CyberBorder),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(34.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                        ) {
+                            Text("VLESS WS", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.setConverterOriginalConfig("vmess://eyJhZGQiOiJzdWIubXlkb21haW4uY29tIiwiYWlkIjoiMCIsImh0dHAiOiJmYWxzZSIsImlkIjoiOGViZmNhMGEtZGY2Mi00ODIyLWE5ODItZmVjODYxNDRiYjI4IiwiaW5zaWRlUG9ydCI6IjAiLCJuZXQiOiJ3cyIsInBhdGgiOiIvIiwicG9ydCI6IjQ0MyIsInBzIjoiVk1lc3MtV2Vic29ja2V0IiIsInNlY3VyaXR5IjoiYXV0byIsInNuaSI6InN1Yi5teWRvbWFpbi5jb20iLCJ0bHMiOiJ0bHMiLCJ0eXBlIjpub25lLCJ2IjoiMiJ9")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberBgDeep, contentColor = Color.White),
+                            border = BorderStroke(1.dp, CyberBorder),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(34.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                        ) {
+                            Text("VMess WS", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.setConverterOriginalConfig("trojan://password123@sub.mydomain.com:443?type=ws&security=tls&path=%2F#Trojan-Websocket-TLS")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CyberBgDeep, contentColor = Color.White),
+                            border = BorderStroke(1.dp, CyberBorder),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).height(34.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                        ) {
+                            Text("Trojan WS", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
 
                     OutlinedTextField(
                         value = originalConfig,

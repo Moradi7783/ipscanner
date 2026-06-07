@@ -120,14 +120,38 @@ class VpnTunnelService : VpnService() {
     }
 
     private fun startLocalProxyGateway(targetIp: String, targetPort: Int) {
+        // Start SOCKS5 Server on 1080
+        serviceScope.launch(Dispatchers.IO) {
+            var socksServerSocket: ServerSocket? = null
+            try {
+                socksServerSocket = ServerSocket(1080)
+                socksServerSocket.reuseAddress = true
+                while (isRunning.get()) {
+                    val clientSocket = socksServerSocket.accept() ?: break
+                    clientSocket.tcpNoDelay = true
+                    clientSocket.keepAlive = true
+                    serviceScope.launch(Dispatchers.IO) {
+                        handleSocks5Client(clientSocket, targetIp, targetPort)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                try { socksServerSocket?.close() } catch (_: Exception) {}
+            }
+        }
+
+        // Start HTTP Connect Server on 1081
         serviceScope.launch(Dispatchers.IO) {
             try {
-                // Listen on local port 1081 for app-internal direct local proxy forwarding
                 proxyServerSocket = ServerSocket(1081)
+                proxyServerSocket?.reuseAddress = true
                 while (isRunning.get()) {
                     val clientSocket = proxyServerSocket?.accept() ?: break
+                    clientSocket.tcpNoDelay = true
+                    clientSocket.keepAlive = true
                     serviceScope.launch(Dispatchers.IO) {
-                        handleClientConnection(clientSocket, targetIp, targetPort)
+                        handleHttpConnectClient(clientSocket, targetIp, targetPort)
                     }
                 }
             } catch (e: Exception) {
@@ -136,52 +160,205 @@ class VpnTunnelService : VpnService() {
         }
     }
 
-    private fun handleClientConnection(clientSocket: Socket, destIp: String, destPort: Int) {
+    private fun handleSocks5Client(clientSocket: Socket, destIp: String, destPort: Int) {
         var hostSocket: Socket? = null
         try {
-            clientSocket.soTimeout = 10000
-            hostSocket = Socket(destIp, destPort)
-            hostSocket.soTimeout = 10000
+            clientSocket.soTimeout = 15000
+            val rin = clientSocket.getInputStream()
+            val rout = clientSocket.getOutputStream()
 
-            val clientIn = clientSocket.getInputStream()
-            val clientOut = clientSocket.getOutputStream()
-            val hostIn = hostSocket.getInputStream()
-            val hostOut = hostSocket.getOutputStream()
+            // 1. SOCKS5 Greeting handshake
+            val version = rin.read()
+            if (version != 5) {
+                try { clientSocket.close() } catch (_: Exception) {}
+                return
+            }
+            val numMethods = rin.read()
+            if (numMethods <= 0) return
+            val methods = ByteArray(numMethods)
+            rin.read(methods)
+            
+            // Send chosen auth method: 0x00 (No authentication required)
+            rout.write(byteArrayOf(0x05, 0x00))
+            rout.flush()
 
-            // Concurrently relay data between local proxy client socket and remote CDN IP
-            val job1 = serviceScope.launch(Dispatchers.IO) {
-                val buffer = ByteArray(4096)
-                var len = 0
-                try {
-                    while (isRunning.get() && clientIn.read(buffer).also { len = it } != -1) {
-                        hostOut.write(buffer, 0, len)
-                        hostOut.flush()
-                        _bytesTransferred.value += len
+            // 2. Request details parsing
+            val reqVer = rin.read()
+            val cmd = rin.read()
+            rin.read() // RSV
+            val atyp = rin.read()
+
+            if (reqVer != 5 || cmd != 1) { // Only supports CONNECT (cmd = 0x01)
+                rout.write(byteArrayOf(0x05, 0x07, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+                rout.flush()
+                return
+            }
+
+            // Skip addresses requested and directly tunnel connection over our clean CDN endpoint
+            when (atyp) {
+                1 -> { // IPv4
+                    val ipv4 = ByteArray(4)
+                    rin.read(ipv4)
+                }
+                3 -> { // Domain name
+                    val len = rin.read()
+                    if (len > 0) {
+                        val domain = ByteArray(len)
+                        rin.read(domain)
                     }
-                } catch (_: Exception) {}
+                }
+                4 -> { // IPv6
+                    val ipv6 = ByteArray(16)
+                    rin.read(ipv6)
+                }
+                else -> return
             }
 
-            val job2 = serviceScope.launch(Dispatchers.IO) {
-                val buffer = ByteArray(4096)
-                var len = 0
+            // Skip requested port
+            val reqPortBytes = ByteArray(2)
+            rin.read(reqPortBytes)
+
+            // Connect to our clean destIp with fallback ports if blocked!
+            val connectPorts = listOf(destPort, 443, 8443, 2053, 2083, 2096)
+            var connectionSuccessful = false
+            for (p in connectPorts) {
                 try {
-                    while (isRunning.get() && hostIn.read(buffer).also { len = it } != -1) {
-                        clientOut.write(buffer, 0, len)
-                        clientOut.flush()
-                        _bytesTransferred.value += len
-                    }
-                } catch (_: Exception) {}
+                    hostSocket = Socket()
+                    hostSocket.tcpNoDelay = true
+                    hostSocket.keepAlive = true
+                    hostSocket.connect(java.net.InetSocketAddress(destIp, p), 4000)
+                    hostSocket.soTimeout = 30000
+                    connectionSuccessful = true
+                    break
+                } catch (ex: Exception) {
+                    try { hostSocket?.close() } catch (_: Exception) {}
+                    hostSocket = null
+                }
             }
 
-            runBlocking {
-                job1.join()
-                job2.join()
+            if (!connectionSuccessful || hostSocket == null) {
+                // Connection failed
+                rout.write(byteArrayOf(0x05, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+                rout.flush()
+                return
             }
+
+            // Connection succeeded
+            rout.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+            rout.flush()
+
+            // Concurrently stream between client and remote server
+            relaySockets(clientSocket, hostSocket)
+
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
             try { clientSocket.close() } catch (_: Exception) {}
             try { hostSocket?.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun handleHttpConnectClient(clientSocket: Socket, destIp: String, destPort: Int) {
+        var hostSocket: Socket? = null
+        try {
+            clientSocket.soTimeout = 15000
+            val rin = clientSocket.getInputStream()
+            val rout = clientSocket.getOutputStream()
+
+            // 1. Parse HTTP CONNECT line
+            val reader = rin.bufferedReader()
+            val requestLine = reader.readLine() ?: return
+            if (!requestLine.uppercase().startsWith("CONNECT")) {
+                rout.write("HTTP/1.1 400 Bad Request\r\n\r\n".toByteArray(Charsets.UTF_8))
+                rout.flush()
+                return
+            }
+
+            // Read the rest of HTTP headers
+            var headerLine: String?
+            while (reader.readLine().also { headerLine = it } != null) {
+                if (headerLine.isNullOrEmpty()) break
+            }
+
+            // Connect to our clean destIp with fallback ports if blocked!
+            val connectPorts = listOf(destPort, 443, 8443, 2053, 2083, 2096)
+            var connectionSuccessful = false
+            for (p in connectPorts) {
+                try {
+                    hostSocket = Socket()
+                    hostSocket.tcpNoDelay = true
+                    hostSocket.keepAlive = true
+                    hostSocket.connect(java.net.InetSocketAddress(destIp, p), 4000)
+                    hostSocket.soTimeout = 30000
+                    connectionSuccessful = true
+                    break
+                } catch (ex: Exception) {
+                    try { hostSocket?.close() } catch (_: Exception) {}
+                    hostSocket = null
+                }
+            }
+
+            if (!connectionSuccessful || hostSocket == null) {
+                rout.write("HTTP/1.1 502 Bad Gateway\r\n\r\n".toByteArray(Charsets.UTF_8))
+                rout.flush()
+                return
+            }
+
+            // Succeeded connection
+            rout.write("HTTP/1.1 200 Connection Established\r\n\r\n".toByteArray(Charsets.UTF_8))
+            rout.flush()
+
+            // Stream between client and remote server
+            relaySockets(clientSocket, hostSocket)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            try { clientSocket.close() } catch (_: Exception) {}
+            try { hostSocket?.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun relaySockets(clientSocket: Socket, hostSocket: Socket) {
+        val clientIn = clientSocket.getInputStream()
+        val clientOut = clientSocket.getOutputStream()
+        val hostIn = hostSocket.getInputStream()
+        val hostOut = hostSocket.getOutputStream()
+
+        // 64KB optimized chunk buffer
+        val bufferSize = 65536
+
+        val job1 = serviceScope.launch(Dispatchers.IO) {
+            val buffer = ByteArray(bufferSize)
+            try {
+                var len = 0
+                while (isRunning.get() && clientIn.read(buffer).also { len = it } != -1) {
+                    if (len > 0) {
+                        hostOut.write(buffer, 0, len)
+                        hostOut.flush()
+                        _bytesTransferred.value += len.toLong()
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        val job2 = serviceScope.launch(Dispatchers.IO) {
+            val buffer = ByteArray(bufferSize)
+            try {
+                var len = 0
+                while (isRunning.get() && hostIn.read(buffer).also { len = it } != -1) {
+                    if (len > 0) {
+                        clientOut.write(buffer, 0, len)
+                        clientOut.flush()
+                        _bytesTransferred.value += len.toLong()
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        runBlocking {
+            job1.join()
+            job2.join()
         }
     }
 

@@ -24,7 +24,8 @@ data class ScannedIp(
     val latency: Long?,
     val speed: Double?, // KB/s
     val isSpeedTesting: Boolean = false,
-    val isSuccess: Boolean = false
+    val isSuccess: Boolean = false,
+    val bestPort: Int = 443
 )
 
 data class PresetCidr(
@@ -33,7 +34,85 @@ data class PresetCidr(
     val cidrs: List<String>
 )
 
+data class OperatorPreset(
+    val id: String,
+    val name: String,
+    val description: String,
+    val cidrs: List<String>,
+    val defPorts: List<Int>,
+    val defTimeout: Int
+)
+
 class ScannerViewModel : ViewModel() {
+
+    // Preset operators for intelligent carrier targeting under Iran filternet
+    val operatorPresets = listOf(
+        OperatorPreset(
+            id = "all",
+            name = "همه اپراتورها (عمومی)",
+            description = "جستجو روی کل بازه‌های عمومی به همراه پورت‌های استاندارد",
+            cidrs = listOf("172.64.0.0/13", "104.16.0.0/12", "162.158.0.0/15"),
+            defPorts = listOf(443, 8443, 2053),
+            defTimeout = 1200
+        ),
+        OperatorPreset(
+            id = "mci",
+            name = "همراه اول (MCI)",
+            description = "آی‌پی‌های بهینه شده برای فرکانس و فیلترینگ سخت همراه اول",
+            cidrs = listOf("162.159.0.0/16", "172.67.0.0/16", "104.16.0.0/16", "162.158.0.0/16", "104.19.0.0/16"),
+            defPorts = listOf(443, 8443, 2053, 2083),
+            defTimeout = 1400
+        ),
+        OperatorPreset(
+            id = "irancell",
+            name = "ایرانسل (Irancell)",
+            description = "بازه‌ها و پورت‌های پرسرعت تست شده روی سیم‌کارت ایرانسل",
+            cidrs = listOf("104.17.0.0/16", "104.18.0.0/16", "104.20.0.0/16", "104.22.0.0/16", "172.64.0.0/16"),
+            defPorts = listOf(443, 2053, 2083, 2096),
+            defTimeout = 1300
+        ),
+        OperatorPreset(
+            id = "rightel",
+            name = "رایتل (RighTel)",
+            description = "رنج‌های سبک و ویژه با دور زدن سریع برای سیم‌کارت رایتل",
+            cidrs = listOf("188.114.96.0/20", "141.101.64.0/18", "190.93.240.0/20", "108.162.192.0/18"),
+            defPorts = listOf(443, 2083, 2096, 8443),
+            defTimeout = 1500
+        ),
+        OperatorPreset(
+            id = "fixed",
+            name = "اینترنت خانگی (Wi-Fi / ADSL)",
+            description = "اتصال پایدار روی مخابرات، شاتل، آسیاتک، پارس آنلاین و غیره",
+            cidrs = listOf("172.64.0.0/13", "104.64.0.0/10", "184.24.0.0/13", "23.200.0.0/13", "104.16.100.0/24"),
+            defPorts = listOf(443, 80, 8080, 8443),
+            defTimeout = 1000
+        )
+    )
+
+    private val _selectedOperatorId = MutableStateFlow("all")
+    val selectedOperatorId = _selectedOperatorId.asStateFlow()
+
+    private val _smartTlsCheck = MutableStateFlow(true)
+    val smartTlsCheck = _smartTlsCheck.asStateFlow()
+
+    private val _multiPortScan = MutableStateFlow(false)
+    val multiPortScan = _multiPortScan.asStateFlow()
+
+    fun selectOperator(id: String) {
+        _selectedOperatorId.update { id }
+        operatorPresets.find { it.id == id }?.let { op ->
+            _scanTimeout.update { op.defTimeout }
+            _scanPort.update { op.defPorts.firstOrNull() ?: 443 }
+        }
+    }
+
+    fun setSmartTlsCheck(value: Boolean) {
+        _smartTlsCheck.update { value }
+    }
+
+    fun setMultiPortScan(value: Boolean) {
+        _multiPortScan.update { value }
+    }
 
     // Presets for CDN ranges popular in general usage
     val presetCidrs = listOf(
@@ -314,7 +393,14 @@ class ScannerViewModel : ViewModel() {
                 // Collect CIDRs
                 val allCidrs = mutableListOf<String>()
                 
-                // From chosen presets
+                // 1. Automatically load operator preset CIDRs if an operator is selected
+                val currentOpId = _selectedOperatorId.value
+                val opPreset = operatorPresets.find { it.id == currentOpId }
+                if (opPreset != null && opPreset.id != "all") {
+                    allCidrs.addAll(opPreset.cidrs)
+                }
+
+                // 2. From chosen presets
                 val activePresets = _selectedPresets.value
                 for (p in presetCidrs) {
                     if (activePresets.contains(p.name)) {
@@ -322,7 +408,7 @@ class ScannerViewModel : ViewModel() {
                     }
                 }
 
-                // From custom CIDRs field
+                // 3. From custom CIDRs field
                 if (_customCidrs.value.isNotEmpty()) {
                     _customCidrs.value.split(Regex("[\n,;]+"))
                         .map { it.trim() }
@@ -366,14 +452,34 @@ class ScannerViewModel : ViewModel() {
                 val jobs = finalScanList.map { ip ->
                     async(Dispatchers.IO) {
                         sem.withPermit {
-                            val latency = checkSmartPing(ip, port, timeout, _deepTargetedMode.value, _akamaiSmartScan.value)
+                            val currentOp = operatorPresets.find { it.id == _selectedOperatorId.value }
+                            val portsToTest = if (_multiPortScan.value) {
+                                currentOp?.defPorts ?: listOf(443, 8443, 2053, 2083)
+                            } else {
+                                listOf(port)
+                            }
+
+                            var bestTestedLatency: Long? = null
+                            var bestTestedPort: Int = port
+
+                            for (p in portsToTest) {
+                                val latency = checkSmartPing(ip, p, timeout, _deepTargetedMode.value, _akamaiSmartScan.value, _smartTlsCheck.value)
+                                if (latency != null) {
+                                    if (bestTestedLatency == null || latency < bestTestedLatency) {
+                                        bestTestedLatency = latency
+                                        bestTestedPort = p
+                                    }
+                                }
+                            }
+
                             withContext(Dispatchers.Main) {
                                 _scannedIps.update { list ->
                                     val item = ScannedIp(
                                         ip = ip,
-                                        latency = latency,
+                                        latency = bestTestedLatency,
                                         speed = null,
-                                        isSuccess = latency != null
+                                        isSuccess = bestTestedLatency != null,
+                                        bestPort = bestTestedPort
                                     )
                                     (list + item).sortedWith(compareBy<ScannedIp> { !it.isSuccess }
                                         .thenBy { it.latency ?: Long.MAX_VALUE })
@@ -393,7 +499,7 @@ class ScannerViewModel : ViewModel() {
         }
     }
 
-    private suspend fun checkSmartPing(ip: String, port: Int, timeout: Int, deepMode: Boolean, akamaiSmart: Boolean): Long? {
+    private suspend fun checkSmartPing(ip: String, port: Int, timeout: Int, deepMode: Boolean, akamaiSmart: Boolean, tlsCheck: Boolean): Long? {
         val attempts = if (deepMode) 2 else 1
         var bestLatency: Long? = null
         val effectiveTimeout = if (deepMode) (timeout * 1.5).toInt() else timeout
@@ -410,11 +516,43 @@ class ScannerViewModel : ViewModel() {
                         return null
                     }
                 }
+
+                // If smart TLS check is on, verify standard cloudflare SSL handshake
+                if (tlsCheck) {
+                    val tlsOk = verifySslHandshake(ip, port, effectiveTimeout)
+                    if (!tlsOk) {
+                        return null
+                    }
+                }
                 
                 if (!deepMode) break // Standard mode needs only one successful ping
             }
         }
         return bestLatency
+    }
+
+    private suspend fun verifySslHandshake(ip: String, port: Int, timeout: Int): Boolean = withContext(Dispatchers.IO) {
+        var sslSocket: Socket? = null
+        try {
+            val factory = SSLSocketFactory.getDefault()
+            sslSocket = factory.createSocket()
+            sslSocket.connect(InetSocketAddress(ip, port), timeout)
+            sslSocket.soTimeout = timeout
+            
+            if (sslSocket is SSLSocket) {
+                val sslParams = sslSocket.sslParameters
+                sslParams.serverNames = listOf(SNIHostName("speed.cloudflare.com"))
+                sslSocket.sslParameters = sslParams
+                sslSocket.startHandshake()
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        } finally {
+            try { sslSocket?.close() } catch (_: Exception) {}
+        }
     }
 
     private fun isAkamaiIp(ip: String): Boolean {
