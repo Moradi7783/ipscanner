@@ -283,6 +283,13 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
     val vpnBytes by VpnTunnelService.bytesTransferred.collectAsState(0L)
     val vpnDuration by VpnTunnelService.durationSeconds.collectAsState(0L)
 
+    val selectedVpnIp by viewModel.selectedVpnIp.collectAsState()
+    val selectedVpnPort by viewModel.selectedVpnPort.collectAsState()
+
+    val bestIp = remember(scannedIps) {
+        scannedIps.firstOrNull { it.isSuccess }?.ip ?: "104.16.248.249"
+    }
+
     var ipToConnect by remember { mutableStateOf("") }
     var portToConnect by remember { mutableStateOf(443) }
 
@@ -431,75 +438,81 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
             }
         }
 
-        // VPN Tunneling Dashboard Card (Visible when VPN is connected)
+        // VPN Tunneling Dashboard Card (Always visible VPN control console)
         item {
-            AnimatedVisibility(visible = vpnConnected) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CyberBgCard),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, CyberPrimary.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CyberBgCard),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, if (vpnConnected) CyberSuccess.copy(alpha = 0.5f) else CyberPrimary.copy(alpha = 0.15f)),
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.End
                 ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        horizontalAlignment = Alignment.End
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Active Connection Status Beacon
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(CyberSuccess)
-                                        .border(2.dp, CyberBgDeep, CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "تونل فعال (VPN Connected)",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = CyberSuccess
-                                )
-                            }
-                            
-                            Text(
-                                text = "وضعیت اتصال پروکسی مستقیم لک",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                        // Active Connection Status Beacon
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (vpnConnected) CyberSuccess else CyberMuted)
+                                    .border(2.dp, CyberBgDeep, CircleShape)
                             )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(14.dp))
-                        
-                        // Specs Row: IP and Port
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (vpnConnectedIp.isNotEmpty()) "$vpnConnectedIp:443" else "---",
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "آی‌پی گیت‌وی کلودفلر:",
+                                text = if (vpnConnected) "تونل فعال (CONNECTED)" else "قطع اتصال (DISCONNECTED)",
                                 fontSize = 11.sp,
-                                color = CyberMuted
+                                fontWeight = FontWeight.Bold,
+                                color = if (vpnConnected) CyberSuccess else CyberMuted
                             )
                         }
                         
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Transfer details row
+                        Text(
+                            text = "کنترلر و اتصال مستقیم لک (VPN)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(14.dp))
+                    
+                    // Specs Row: IP and Port
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val activeIpText = if (vpnConnected) {
+                            if (vpnConnectedIp.isNotEmpty()) "$vpnConnectedIp:443" else "گیت‌وی فعال لک"
+                        } else {
+                            if (selectedVpnIp.isNotEmpty()) "$selectedVpnIp:443 (انتخابی)" else "$bestIp:443 (خودکار - بهترین پینگ)"
+                        }
+
+                        Text(
+                            text = activeIpText,
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = if (vpnConnected) CyberSuccess else Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "آی‌پی سرور فعال:",
+                            fontSize = 11.sp,
+                            color = CyberMuted
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Transfer details row
+                    if (vpnConnected) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -552,30 +565,75 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
                                 color = CyberMuted
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Local Socks5 Instruction box
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(CyberBgDeep)
-                                .padding(12.dp)
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val explanationText = if (selectedVpnIp.isNotEmpty()) "اتصال به آی‌پی گزینش شده شما صورت می‌پذیرد." else "در صورت نبود آی‌پی اسکن شده، سرور پیش‌فرض استفاده می‌شود."
                             Text(
-                                text = "تونل محلی لک روی آدرس 127.0.0.1:1081 فعال است. تمامی فرستنده‌های شبکه از این مسیر هدایت می‌شوند تا فیلترینگ دور زده شود.",
+                                text = explanationText,
                                 fontSize = 10.sp,
                                 color = CyberMuted,
-                                lineHeight = 15.sp,
-                                textAlign = TextAlign.Right,
-                                modifier = Modifier.fillMaxWidth()
+                                textAlign = TextAlign.Left
+                            )
+                            Text(
+                                text = "راهنمای اتصال هوشمند:",
+                                fontSize = 11.sp,
+                                color = CyberMuted
                             )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                        // Disconnect action button
+                    // Local Socks5 Instruction box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberBgDeep)
+                            .padding(12.dp)
+                    ) {
+                        val descMsg = if (vpnConnected) {
+                            "تونل محلی لک روی آدرس 127.0.0.1:1081 فعال است. تمامی فرستنده‌های شبکه از این مسیر هدایت می‌شوند تا فیلترینگ دور زده شود."
+                        } else {
+                            "وی‌پی‌ان محلی لک با متصل شدن به آی‌پی انتخاب شده یا بهترین آی‌پی اسکن شده، تمام بسته‌های اینترنت دستگاه شما را با سرعت بالا دور زده و تونل می‌کند."
+                        }
+                        Text(
+                            text = descMsg,
+                            fontSize = 10.sp,
+                            color = CyberMuted,
+                            lineHeight = 15.sp,
+                            textAlign = TextAlign.Right,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val triggerVpnConnection: (String, Int) -> Unit = { ip, port ->
+                        if (isScanning) {
+                            Toast.makeText(context, "جهت اتصال بدون اختلال، ابتدا اسکنر زنده را متوقف کنید.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            ipToConnect = ip
+                            portToConnect = port
+                            val prepIntent = VpnService.prepare(context)
+                            if (prepIntent != null) {
+                                vpnPrepareLauncher.launch(prepIntent)
+                            } else {
+                                val startIntent = Intent(context, VpnTunnelService::class.java).apply {
+                                    action = VpnTunnelService.ACTION_CONNECT
+                                    putExtra(VpnTunnelService.EXTRA_IP, ip)
+                                    putExtra(VpnTunnelService.EXTRA_PORT, port)
+                                }
+                                context.startService(startIntent)
+                            }
+                        }
+                    }
+
+                    if (vpnConnected) {
                         Button(
                             onClick = {
                                 val intent = Intent(context, VpnTunnelService::class.java).apply {
@@ -588,10 +646,41 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop VPN",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "قطع اتصال مستقیم",
+                                text = "قطع اتصال مستقیم پروکسی لک",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                val targetIp = if (selectedVpnIp.isNotEmpty()) selectedVpnIp else bestIp
+                                triggerVpnConnection(targetIp, selectedVpnPort)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CyberPrimary,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Start VPN",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "برقراری اتصال مستقیم لک (VPN Connect)",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1214,6 +1303,8 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
                     if (isScanning) {
                         Toast.makeText(context, "جهت اتصال بدون اختلال، ابتدا اسکنر زنده را متوقف کنید.", Toast.LENGTH_SHORT).show()
                     } else {
+                        viewModel.setSelectedVpnIp(ip)
+                        viewModel.setSelectedVpnPort(port)
                         ipToConnect = ip
                         portToConnect = port
                         val prepIntent = VpnService.prepare(context)

@@ -89,6 +89,20 @@ class ScannerViewModel : ViewModel() {
     private val _deepTargetedMode = MutableStateFlow(false)
     val deepTargetedMode = _deepTargetedMode.asStateFlow()
 
+    private val _selectedVpnIp = MutableStateFlow<String>("")
+    val selectedVpnIp = _selectedVpnIp.asStateFlow()
+
+    private val _selectedVpnPort = MutableStateFlow<Int>(443)
+    val selectedVpnPort = _selectedVpnPort.asStateFlow()
+
+    fun setSelectedVpnIp(ip: String) {
+        _selectedVpnIp.update { ip }
+    }
+
+    fun setSelectedVpnPort(port: Int) {
+        _selectedVpnPort.update { port }
+    }
+
     private val _directConnectionStatus = MutableStateFlow<String>("نامشخص")
     val directConnectionStatus = _directConnectionStatus.asStateFlow()
 

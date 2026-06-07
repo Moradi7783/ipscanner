@@ -83,7 +83,11 @@ class VpnTunnelService : VpnService() {
         // 1. Create foreground notification for VpnService
         createNotificationChannel()
         val notification = createNotification(ip)
-        startForeground(1001, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(1001, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(1001, notification)
+        }
 
         // 2. Establish Android Vpn TUN Interface (displays System VPN key icon)
         try {
