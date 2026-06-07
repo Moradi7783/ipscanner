@@ -1,0 +1,6 @@
+{
+  "name": "لک",
+  "description": "An advanced CDN IP scanning tool for finding alive CDN IPs, measuring ping latency and speed, and converting VLESS/Trojan configurations with healthy IPs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
