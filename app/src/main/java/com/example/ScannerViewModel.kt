@@ -103,6 +103,41 @@ class ScannerViewModel : ViewModel() {
         _selectedVpnPort.update { port }
     }
 
+    private val _tgProxyPort = MutableStateFlow<Int>(443)
+    val tgProxyPort = _tgProxyPort.asStateFlow()
+
+    private val _tgProxySecret = MutableStateFlow<String>("ee000000000000000000000000000000017777772e636c6f7564666c6172652e636f6d")
+    val tgProxySecret = _tgProxySecret.asStateFlow()
+
+    private val _tgSocksPort = MutableStateFlow<Int>(1080)
+    val tgSocksPort = _tgSocksPort.asStateFlow()
+
+    private val _tgSocksUser = MutableStateFlow<String>("")
+    val tgSocksUser = _tgSocksUser.asStateFlow()
+
+    private val _tgSocksPass = MutableStateFlow<String>("")
+    val tgSocksPass = _tgSocksPass.asStateFlow()
+
+    fun setTgProxyPort(port: Int) {
+        _tgProxyPort.update { port }
+    }
+
+    fun setTgProxySecret(secret: String) {
+        _tgProxySecret.update { secret }
+    }
+
+    fun setTgSocksPort(port: Int) {
+        _tgSocksPort.update { port }
+    }
+
+    fun setTgSocksUser(user: String) {
+        _tgSocksUser.update { user }
+    }
+
+    fun setTgSocksPass(pass: String) {
+        _tgSocksPass.update { pass }
+    }
+
     private val _directConnectionStatus = MutableStateFlow<String>("نامشخص")
     val directConnectionStatus = _directConnectionStatus.asStateFlow()
 

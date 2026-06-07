@@ -50,6 +50,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.HorizontalDivider
 import android.net.VpnService
+import android.net.Uri
 import android.content.Intent
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -213,9 +214,9 @@ fun MainAppScreen(viewModel: ScannerViewModel) {
                                 onClick = { activeTab = 0 },
                                 text = {
                                     Text(
-                                        text = "تست و اسکنر آی‌پی",
+                                        text = "اسکنر آی‌پی",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
+                                        fontSize = 12.sp
                                     )
                                 },
                                 selectedContentColor = CyberPrimary,
@@ -226,9 +227,22 @@ fun MainAppScreen(viewModel: ScannerViewModel) {
                                 onClick = { activeTab = 1 },
                                 text = {
                                     Text(
-                                        text = "تبدیل و تولید کانفیگ",
+                                        text = "تبدیل کانفیگ",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
+                                        fontSize = 12.sp
+                                    )
+                                },
+                                selectedContentColor = CyberPrimary,
+                                unselectedContentColor = CyberMuted
+                            )
+                            Tab(
+                                selected = activeTab == 2,
+                                onClick = { activeTab = 2 },
+                                text = {
+                                    Text(
+                                        text = "پروکسی تلگرام",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp
                                     )
                                 },
                                 selectedContentColor = CyberPrimary,
@@ -246,6 +260,7 @@ fun MainAppScreen(viewModel: ScannerViewModel) {
                     when (activeTab) {
                         0 -> ScannerTabScreen(viewModel)
                         1 -> GeneratorTabScreen(viewModel)
+                        2 -> TelegramProxyTabScreen(viewModel)
                     }
                 }
             }
@@ -588,24 +603,82 @@ fun ScannerTabScreen(viewModel: ScannerViewModel) {
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Local Socks5 Instruction box
-                    Box(
+                    // Educational step-by-step and technical context in Persian
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CyberBgDeep)
-                            .padding(12.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(CyberBgDeep.copy(alpha = 0.8f))
+                            .border(1.dp, CyberPrimary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.End
                     ) {
-                        val descMsg = if (vpnConnected) {
-                            "تونل محلی لک روی آدرس 127.0.0.1:1081 فعال است. تمامی فرستنده‌های شبکه از این مسیر هدایت می‌شوند تا فیلترینگ دور زده شود."
-                        } else {
-                            "وی‌پی‌ان محلی لک با متصل شدن به آی‌پی انتخاب شده یا بهترین آی‌پی اسکن شده، تمام بسته‌های اینترنت دستگاه شما را با سرعت بالا دور زده و تونل می‌کند."
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "راهنمای حل مشکل اتصال تلگرام و وب‌گردی",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFF59E0B) // Sleek Amber/Orange Warning/Info
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "اطلاعات مستقیم",
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         Text(
-                            text = descMsg,
+                            text = "۱. آی‌پی‌های تمیز کلودفلر (CDN IP) خودشان به تنهایی سرور پروکسی عمومی نیستند. بلکه مانند یک دروازه میانی (Bridge) ضد فیلتر عمل می‌کنند که ترافیک کلی شبکه به صورت خام روی آنها کار نمی‌کند.",
+                            fontSize = 10.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 16.sp,
+                            textAlign = TextAlign.Right,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "۲. برای رد کردن فیلترینگ تلگرام، اینستاگرام و یوتیوب، ترافیک شما باید با یک کانفیگ پروکسی/فیلترشکن شخصی (از نوع VLESS، VMess یا Trojan لود شده روی وب‌سوکت) رمزگذاری شده و سپس به این آی‌پی‌های تمیز فرستاده شود تا با حداکثر سرعت کار کند.",
+                            fontSize = 10.sp,
+                            color = Color.White.copy(alpha = 0.9f),
+                            lineHeight = 16.sp,
+                            textAlign = TextAlign.Right,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        HorizontalDivider(color = CyberBorder.copy(alpha = 0.4f), thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "💡 گام ساده برای اتصال پرسرعت تلگرام:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyberPrimary,
+                            textAlign = TextAlign.Right,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "• ابتدا در بخش \"اسکنر زنده\" آی‌پی‌های تمیز را اسکن و پیدا کنید.\n" +
+                                   "• یکی از آی‌پی‌های تمیز یافت شده را کپی کنید.\n" +
+                                   "• به بخش \"مبدل کانفیگ\" رفته و لینک اکانت فیلترشکن خود را در کادر بالا بگذارید.\n" +
+                                   "• روی دکمه تبدیل کلیک کنید تا این آی‌پی‌های سالم جایگزین شوند.\n" +
+                                   "• کانفیگ جدید ساخته شده را کپی کرده و در برنامه‌های فیلترشکن استاندارد مانند v2rayNG یا Nekobox وارد کنید و متصل شوید تا با سرعت شگفت‌انگیز تمام برنامه‌ها از جمله تلگرام باز شوند.",
                             fontSize = 10.sp,
                             color = CyberMuted,
-                            lineHeight = 15.sp,
+                            lineHeight = 16.sp,
                             textAlign = TextAlign.Right,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1830,4 +1903,447 @@ fun BoxBorderBrush(): BorderStroke {
             colors = listOf(CyberBorder, CyberPrimary.copy(alpha = 0.5f), CyberBorder)
         )
     )
+}
+
+@Composable
+fun TelegramProxyTabScreen(viewModel: ScannerViewModel) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
+    // State from ViewModel
+    val scannedIps by viewModel.scannedIps.collectAsState()
+    val tgProxyPort by viewModel.tgProxyPort.collectAsState()
+    val tgProxySecret by viewModel.tgProxySecret.collectAsState()
+
+    val tgSocksPort by viewModel.tgSocksPort.collectAsState()
+    val tgSocksUser by viewModel.tgSocksUser.collectAsState()
+    val tgSocksPass by viewModel.tgSocksPass.collectAsState()
+
+    // Filter healthy IPs
+    val healthyIps = remember(scannedIps) {
+        scannedIps.filter { it.isSuccess && it.latency != null }
+    }
+
+    // Modern Tab indicator for proxy types: MTProto Node (0) vs SOCKS5 Node (1)
+    var proxyTypeTab by remember { mutableStateOf(0) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            // Description Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CyberBgCard),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, CyberBorder)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "مبدل خودکار آی‌پی‌های تمیز به پروکسی تلگرام",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyberPrimary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "با اسکن آی‌پی‌های تمیز کلودفلر، می‌توانید آنها را مستقیماً به پروکسی‌های اختصاصی تلگرام (MTProto یا SOCKS5) تبدیل کرده و با یک کلیک تست و فعال کنید. این ترافیک از سرور میانی کلودفلر هدایت می‌شود تا فیلترینگ تلگرام با بالاترین سرعت برداشته شود.",
+                        fontSize = 11.sp,
+                        color = CyberMuted,
+                        textAlign = TextAlign.Right,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
+
+        // Switcher block for proxy styles
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(CyberBgCard)
+                    .border(1.dp, CyberBorder, RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                val weight = 1f
+                // SOCKS5 Button
+                Button(
+                    onClick = { proxyTypeTab = 1 },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (proxyTypeTab == 1) CyberPrimary else Color.Transparent,
+                        contentColor = if (proxyTypeTab == 1) Color.White else CyberMuted
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(weight).height(38.dp)
+                ) {
+                    Text("SOCKS5 پروکسی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // MTProto Button
+                Button(
+                    onClick = { proxyTypeTab = 0 },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (proxyTypeTab == 0) CyberPrimary else Color.Transparent,
+                        contentColor = if (proxyTypeTab == 0) Color.White else CyberMuted
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(weight).height(38.dp)
+                ) {
+                    Text("MTProto پروکسی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // Option fields
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CyberBgCard),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, CyberBorder)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = "تنظیمات آدرس مقصد پروکسی",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    if (proxyTypeTab == 0) {
+                        // MTProto Configurations
+                        // Port
+                        OutlinedTextField(
+                            value = tgProxyPort.toString(),
+                            onValueChange = {
+                                val parsed = it.toIntOrNull() ?: 443
+                                viewModel.setTgProxyPort(parsed)
+                            },
+                            label = { Text("پورت (Port)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberPrimary,
+                                unfocusedBorderColor = CyberBorder
+                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = TextStyle(fontSize = 12.sp, textDirection = TextDirection.Ltr)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Secret
+                        OutlinedTextField(
+                            value = tgProxySecret,
+                            onValueChange = { viewModel.setTgProxySecret(it) },
+                            label = { Text("سکرت پروکسی (Secret)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberPrimary,
+                                unfocusedBorderColor = CyberBorder
+                            ),
+                            textStyle = TextStyle(fontSize = 11.sp, textDirection = TextDirection.Ltr, fontFamily = FontFamily.Monospace)
+                        )
+                    } else {
+                        // SOCKS5 Configurations
+                        // Port
+                        OutlinedTextField(
+                            value = tgSocksPort.toString(),
+                            onValueChange = {
+                                val parsed = it.toIntOrNull() ?: 1080
+                                viewModel.setTgSocksPort(parsed)
+                            },
+                            label = { Text("پورت (Port)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberPrimary,
+                                unfocusedBorderColor = CyberBorder
+                            ),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = TextStyle(fontSize = 12.sp, textDirection = TextDirection.Ltr)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Username (Optional)
+                        OutlinedTextField(
+                            value = tgSocksUser,
+                            onValueChange = { viewModel.setTgSocksUser(it) },
+                            label = { Text("نام کاربری - اختیاری (Username)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberPrimary,
+                                unfocusedBorderColor = CyberBorder
+                            ),
+                            textStyle = TextStyle(fontSize = 12.sp, textDirection = TextDirection.Ltr)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Password (Optional)
+                        OutlinedTextField(
+                            value = tgSocksPass,
+                            onValueChange = { viewModel.setTgSocksPass(it) },
+                            label = { Text("رمز عبور - اختیاری (Password)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = CyberPrimary,
+                                unfocusedBorderColor = CyberBorder
+                            ),
+                            textStyle = TextStyle(fontSize = 12.sp, textDirection = TextDirection.Ltr)
+                        )
+                    }
+                }
+            }
+        }
+
+        // IP source status & generator
+        if (healthyIps.isNotEmpty()) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            val allLinks = healthyIps.joinToString("\n") { ipObj ->
+                                if (proxyTypeTab == 0) {
+                                    "https://t.me/proxy?server=${ipObj.ip}&port=$tgProxyPort&secret=$tgProxySecret"
+                                } else {
+                                    val creds = if (tgSocksUser.isNotEmpty()) "&user=$tgSocksUser&pass=$tgSocksPass" else ""
+                                    "https://t.me/socks?server=${ipObj.ip}&port=$tgSocksPort$creds"
+                                }
+                            }
+                            clipboardManager.setText(AnnotatedString(allLinks))
+                            Toast.makeText(context, "تمامی پروکسی‌های تولید شده کپی شدند!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CyberPrimary,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("کپی کل لیست پروکسی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Text(
+                        text = "لیست پروکسی‌های آماده اتصال (${healthyIps.size} آی‌پی سالم):",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CyberPrimary
+                    )
+                }
+            }
+
+            items(healthyIps) { ipObj ->
+                val proxyUrl = if (proxyTypeTab == 0) {
+                    "tg://proxy?server=${ipObj.ip}&port=$tgProxyPort&secret=$tgProxySecret"
+                } else {
+                    val creds = if (tgSocksUser.isNotEmpty()) "&user=$tgSocksUser&pass=$tgSocksPass" else ""
+                    "tg://socks?server=${ipObj.ip}&port=$tgSocksPort$creds"
+                }
+
+                val shareUrl = if (proxyTypeTab == 0) {
+                    "https://t.me/proxy?server=${ipObj.ip}&port=$tgProxyPort&secret=$tgProxySecret"
+                } else {
+                    val creds = if (tgSocksUser.isNotEmpty()) "&user=$tgSocksUser&pass=$tgSocksPass" else ""
+                    "https://t.me/socks?server=${ipObj.ip}&port=$tgSocksPort$creds"
+                }
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CyberBgCard.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, CyberBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${ipObj.latency}ms",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CyberSuccess
+                            )
+
+                            Text(
+                                text = "سرور: ${ipObj.ip}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontFamily = FontFamily.Monospace,
+                                style = TextStyle(textDirection = TextDirection.Ltr)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(CyberBgDeep, RoundedCornerShape(10.dp))
+                                .padding(8.dp)
+                        ) {
+                            Text(
+                                text = shareUrl,
+                                fontSize = 9.sp,
+                                color = CyberMuted,
+                                maxLines = 1,
+                                fontFamily = FontFamily.Monospace,
+                                style = TextStyle(textDirection = TextDirection.Ltr),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Copy button
+                            Button(
+                                onClick = {
+                                    clipboardManager.setText(AnnotatedString(shareUrl))
+                                    Toast.makeText(context, "لینک پروکسی کپی شد", Toast.LENGTH_SHORT).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CyberBgDeep,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).height(36.dp),
+                                border = BorderStroke(1.dp, CyberBorder)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy proxy",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("کپی لینک", fontSize = 10.sp)
+                            }
+
+                            // Connect button
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(proxyUrl))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Try standard share link if deep link fails
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(shareUrl))
+                                            context.startActivity(intent)
+                                        } catch (ex: Exception) {
+                                            Toast.makeText(context, "برنامه تلگرام روی دستگاه یافت نشد.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CyberPrimary,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1.2f).height(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForward,
+                                    contentDescription = "Open in Telegram",
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("اتصال مستقیم", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Empty state encouraging IP scanning
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .background(CyberPrimary.copy(alpha = 0.1f))
+                            .border(1.dp, CyberPrimary.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "هیچ آی‌پی یافت نشد",
+                            tint = CyberPrimary,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "آی‌پی سالم اسکن نشده است",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "جهت ساخت اتوماتیک پروکسی، ابتدا باید در تب \"اسکنر آی‌پی\" دکمه شروع اسکن سالم‌ترین آی‌پی‌ها را بزنید تا اتوماتیک اینجا پروکسی‌ها فعال شوند.",
+                        fontSize = 11.sp,
+                        color = CyberMuted,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.padding(horizontal = 14.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            Toast.makeText(context, "لطفاً از تب بالا اسکنر آی‌پی را انتخاب کنید", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = CyberPrimary.copy(alpha = 0.15f),
+                            contentColor = CyberPrimary
+                        ),
+                        border = BorderStroke(1.dp, CyberPrimary.copy(alpha = 0.3f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("راهنمای گام به گام اسکن", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(40.dp))
+        }
+    }
 }

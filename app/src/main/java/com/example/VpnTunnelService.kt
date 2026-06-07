@@ -95,7 +95,7 @@ class VpnTunnelService : VpnService() {
             builder.setSession("Lak Tunnel")
             builder.addAddress("10.8.0.2", 24)
             builder.addDnsServer("8.8.8.8")
-            builder.addRoute("0.0.0.0", 0) // Route IPv4 traffic
+            builder.addRoute("10.8.0.0", 24) // Route only local VPN subnet to prevent general internet block
             vpnInterface = builder.establish()
         } catch (e: Exception) {
             e.printStackTrace()
